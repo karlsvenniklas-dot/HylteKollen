@@ -1,0 +1,7 @@
+.skip-content{position:absolute;left:12px;top:-100px;z-index:100;background:#fff;color:#183d46;padding:14px}.skip-content:focus{top:12px}
+:where(button,a,input,select,summary,textarea):focus-visible{outline:3px solid #b54717;outline-offset:3px}
+.share-selection{margin:16px 0}.share-selection button{min-height:44px;padding:8px 14px;border:1px solid #64748b;border-radius:6px;background:#fff;color:#183d46;font:inherit;cursor:pointer}.share-selection input{width:100%;min-width:0}.share-selection p:empty{display:none}
+main{min-width:0}.panel{min-width:0;overflow-wrap:anywhere}fieldset{min-width:0}input,select,textarea{max-width:100%}
+.case-facts{width:100%;border-collapse:collapse}.case-facts th,.case-facts td{padding:12px;border-bottom:1px solid #cbd5e1;text-align:left;vertical-align:top}.case-facts th{width:26%}
+@media(max-width:600px){main .columns,main .two-col{grid-template-columns:minmax(0,1fr)}main .panel{padding:18px}nav[aria-label="Huvudmeny"] summary{min-height:44px;display:flex;align-items:center}input,select,textarea{font-size:16px;min-height:44px}.case-facts th,.case-facts td{display:block;width:auto}.case-facts th{border-bottom:0;padding-bottom:0}.coverage-scroll{border:1px solid #cbd5e1}.source-reader{min-width:0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}

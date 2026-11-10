@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {readTimelineFilters,timelineLink} from '../lib/timeline-filters.mjs';
+const allowed={party:['M','SD'],person:['Kerstin Alexén'],outcome:['Avslaget'],implementation:['unknown']};
+const filters={party:'SD',person:'Kerstin Alexén',outcome:'Avslaget',implementation:'unknown',query:'bygglov & avgifter?'};
+const url=new URL(timelineLink(filters),'https://example.test');
+assert.deepEqual(readTimelineFilters(url.search,allowed),{values:filters,invalid:false});
+assert.equal(url.hash,'#partitidslinje');
+assert.equal(readTimelineFilters('?tl_party=madeup',allowed).invalid,true);
+assert.equal(readTimelineFilters('?tl_party=madeup',allowed).values.party,'');
+assert.equal(readTimelineFilters('?tl_query='+ 'x'.repeat(151),allowed).values.query.length,150);
+assert.equal(timelineLink({}),'/statistik#partitidslinje');
+console.log('Timeline URL round-trip, Swedish characters, invalid values, query bound and reset: OK');

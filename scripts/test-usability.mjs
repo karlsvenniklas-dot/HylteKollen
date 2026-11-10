@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {reviewSnapshot,reviewChanges} from '../lib/review-changes.mjs';
+import {snapshot,parseBaseline} from '../lib/change-baseline.mjs';
+const read=p=>readFileSync(p,'utf8');
+const data=JSON.parse(read('data/protocol-review-updates.json'));
+const archive=JSON.parse(read('data/historical-protocol-archive-index.json'));
+const saved=reviewSnapshot(data.records,archive.records);
+assert.equal(Object.keys(saved).length,7);
+assert.equal(reviewChanges(data.records,archive.records,undefined).known,false);
+assert.equal(reviewChanges(data.records,archive.records,saved).added.length,0);
+assert.equal(reviewChanges(data.records,archive.records,saved).changed.length,0);
+assert.equal(reviewChanges(data.records,archive.records,{}).added.length,7);
+const changed=data.records.map((r,i)=>i? r:{...r,summary:r.summary+' Rättelse.'});
+assert.equal(reviewChanges(changed,archive.records,saved).changed.length,1);
+assert.equal(reviewChanges(data.records,[],saved).changed.length,0);
+assert.equal(Object.keys(reviewSnapshot(data.records,[])).length,0);
+const base=snapshot(archive.records,[],'2026-11-10T12:00:00Z',saved);
+assert.deepEqual(parseBaseline(JSON.stringify(base)).decisionReviews,saved);
+assert.throws(()=>parseBaseline(JSON.stringify({...base,decisionReviews:[]})));
+const nav=read('app/site.tsx');
+for(const token of ['name="hyltekollen-main-menu"',"event.key !== 'Escape'",'pointerdown','id="huvudinnehall"','href="#huvudinnehall"'])assert(nav.includes(token),token);
+for(const file of ['decision-journey','money-journey','coverage-map','protocol-insights']){const s=read('app/'+file+'.tsx');assert(s.includes('useUrlSelection'));assert(s.includes('<ShareSelection/>'));}
+assert(read('app/since-last-visit.tsx').includes('window.confirm'));
+assert(read('app/usability.css').includes('prefers-reduced-motion'));
+assert(read('app/coverage-map.tsx').includes('tabIndex={0}'));
+assert(read('app/decision-journey.tsx').includes('g.paragraph===row.paragraph'));
+console.log('PASS: review baseline compatibility, changed/new/stale separation, seven source hashes; static navigation/accessibility/share contracts. Browser tests are separate.');

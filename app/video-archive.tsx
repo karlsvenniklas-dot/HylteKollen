@@ -1,0 +1,14 @@
+"use client";
+import { useMemo, useState } from "react";
+import videos from "@/data/meeting-videos.json";
+import catalog from "@/data/public-catalog.json";
+import { ExternalLink, Film, PlayCircle, ShieldAlert } from "lucide-react";
+
+export default function VideoArchive() {
+  const [year, setYear] = useState("2026");
+  const filtered = useMemo(() => videos.records.filter((row) => row.meetingDate.startsWith(year)), [year]);
+  const [selectedId, setSelectedId] = useState(videos.records[0].id);
+  const selected = videos.records.find((row) => row.id === selectedId) || filtered[0] || videos.records[0];
+  const importedMeeting = catalog.meetings.find((meeting) => meeting.date === selected.meetingDate);
+  return <section className="video-archive"><div className="panel video-archive-head"><div><p className="eyebrow">VIDEOARKIV · OFFICIELLA INSPELNINGAR</p><h2>{videos.coverage.verifiedRecordings} verifierade KF-inspelningar</h2><p>Kommunens arkiv är canonical källa. Dubbla eller tidigare liveströmmar sparas som alternativ och visas inte som egna möten.</p></div><Film size={38}/></div><div className="video-layout"><aside className="panel video-index"><label>År<select value={year} onChange={(event) => { setYear(event.target.value); const first = videos.records.find((row) => row.meetingDate.startsWith(event.target.value)); if (first) setSelectedId(first.id); }}>{["2026","2025","2024","2023","2022"].map((value) => <option key={value}>{value}</option>)}</select></label>{filtered.map((row) => <button type="button" className={row.id === selected.id ? "active" : ""} onClick={() => setSelectedId(row.id)} key={row.id}><PlayCircle size={17}/><span><strong>{row.meetingDate}</strong><small>{row.archiveStatus === "municipality_listed" ? "Kommunens arkiv" : "Officiella kanalen"}</small></span></button>)}</aside><section className="panel video-focus"><div className="video-frame"><iframe src={selected.embedUrl} title={`Kommunfullmäktige ${selected.meetingDate}`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen/></div><div className="sectionhead"><div><p className="eyebrow">OFFICIELL INSPELNING</p><h2>{selected.meetingDate}</h2></div><a className="out" href={selected.watchUrl} target="_blank" rel="noreferrer">YouTube <ExternalLink size={14}/></a></div>{importedMeeting ? <div className="video-agenda"><h3>Importerad dagordning</h3>{importedMeeting.items.map((item) => <a href={`/arenden/${item.id}`} key={item.id}><span>{item.number}</span><strong>{item.title}</strong><small>Tidskod inte verifierad</small></a>)}</div> : <div className="notice"><ShieldAlert size={18}/><span>Inspelningen är verifierad, men en separat dagordning har ännu inte kopplats till detta historiska möte.</span></div>}<p className="small">Dagordningen visar planerade ärenden. Tidskoder och talare publiceras först efter separat verifiering; därför finns ännu inga klickbara kapitel.</p></section></div></section>;
+}

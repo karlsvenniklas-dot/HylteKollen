@@ -1,0 +1,10 @@
+'use client';
+import {useState} from 'react';
+import reviews from '@/data/protocol-manual-reviews.json';
+import SourceReader from './source-reader';
+export default function ProtocolReviewRegister(){
+ const [filter,setFilter]=useState(''),[selected,setSelected]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ async function open(id:string){setBusy(true);setError('');try{const r=await fetch('/data/protocol-reviews/'+encodeURIComponent(id)+'.json');if(!r.ok)throw Error();setSelected(await r.json())}catch{setError('Texten kunde inte läsas. Originalets källänk finns kvar.')}finally{setBusy(false)}}
+ const rows=reviews.records.filter(r=>(r.body+' '+r.meetingDate+' '+r.reviewNote).toLocaleLowerCase('sv').includes(filter.toLocaleLowerCase('sv')));
+ return <section className="panel review-register" id="granskade-filer"><p className="eyebrow">GRANSKNINGSREGISTER · {reviews.reviewedAt}</p><h2>De 35 tidigare granskningsposterna</h2><p>Varje fil har fått en separat bedömning. Verifierad dokumentidentitet är inte samma sak som granskning av varje beslut. Osäkra filer ingår inte i det verifierade sökarkivets antal.</p><label>Filtrera organ, datum eller orsak <input value={filter} onChange={e=>setFilter(e.target.value)} type="search"/></label><p aria-live="polite">{rows.length} filer</p>{rows.map(row=><article key={row.id}><strong>{row.body} · filnamnets datum {row.meetingDate}</strong><p>{row.status==='identity_verified'?'Dokumentidentitet verifierad':'Osäker dokumentidentitet'} · {row.textStatus}</p><p>{row.reviewNote}</p><button className="textbutton" onClick={()=>open(row.id)} disabled={busy}>Läs och jämför original/text</button>{' · '}<a href={row.url} target="_blank" rel="noreferrer">Kommunens original-PDF</a></article>)}{busy&&<p role="status">Läser dokumenttext…</p>}{error&&<p role="alert">{error}</p>}{selected&&<div><button className="textbutton" onClick={()=>setSelected(null)}>Stäng dokumentet</button><SourceReader key={selected.id} document={selected}/></div>}</section>
+}
