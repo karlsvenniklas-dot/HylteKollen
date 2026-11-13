@@ -20,7 +20,16 @@ def fetch(u):
  req=urllib.request.Request(u,headers={'User-Agent':'Hyltekollen/0.1 public municipal document index'})
  with urllib.request.urlopen(req,timeout=45) as r:
   if r.status!=200:raise ValueError('HTTP '+str(r.status))
- return r.read(20_000_000)
+  return r.read(20_000_000)
+def fetch_pdf(u):
+ b=fetch(u)
+ if not b.startswith(b'%PDF-'):raise ValueError('Not a PDF')
+ return b
+def public_pages(document_id,pages):
+ # The source PDF and its original hash stay authoritative. Avoid indexing
+ # personal email addresses from this forwarded email in the text reader.
+ if document_id!='3807720bb351c692d0ae2afd':return pages
+ return [re.sub(r'[\w.+-]+@[\w.-]+\.[a-z]{2,}', '[e-postadress utelämnad]', page, flags=re.I) for page in pages]
 def ident(u):return hashlib.sha256(u.encode()).hexdigest()[:24]
 def source_key(u):
  """Treat MeetingPlus' volatile numeric slug suffix as the same source document."""
@@ -168,29 +177,29 @@ for key in ('protocolReviewed','verifiedDecisions','protocolSource','protocolObs
  if key in prior_meeting:meeting[key]=prior_meeting[key]
 if meeting.get('protocolPublicationEvidence') and meeting.get('municipalProtocol',{}).get('sha256')==meeting['protocolPublicationEvidence'].get('sha256'):
  meeting.pop('protocolError',None)
-def pdf(d):
+def reusable(d):
  cached=checkpoint['documents'].get(source_key(d['url']))
  if cached and cached.get('url')==d['url'] and cached.get('fetchStatus') in ('ok','ocr_required') and not cached.get('lastError'):
   return cached
  prev=old_docs.get(source_key(d['url']))
  if prev and prev.get('fetchStatus')=='ok' and '--refresh' not in sys.argv:return prev
+def pdf(d,download=None):
+ cached=reusable(d)
+ if cached:return cached
+ prev=old_docs.get(source_key(d['url']))
  try:
-  last_error=None
-  for attempt in range(2):
-   try:
-    b=fetch(d['url'])
-    if not b.startswith(b'%PDF'):raise ValueError('Not a PDF')
-    break
-   except Exception as e:
-    last_error=e
-    if attempt<1:time.sleep(1.5)
-  else:raise last_error
+  try:
+   b=download.result() if download is not None else fetch_pdf(d['url'])
+  except Exception:
+   time.sleep(1.5)
+   b=fetch_pdf(d['url'])
   d['sha256']=hashlib.sha256(b).hexdigest()
   with tempfile.TemporaryDirectory() as t:
    p=Path(t)/'doc.pdf'; p.write_bytes(b)
    r=subprocess.run(['pdftotext','-layout',str(p),'-'],capture_output=True,timeout=30,check=True)
    d['pages']=[x.strip() for x in r.stdout.decode(errors='replace').split('\f')]
    if d['pages'] and not d['pages'][-1]:d['pages'].pop()
+  d['pages']=public_pages(d['id'],d['pages'])
   d['fetchStatus']='ok' if any(d['pages']) else 'ocr_required'
   # Keep each extracted document revision; PDFs remain linked at their canonical source.
   version=DATA/'snapshots'/f"{d['id']}-{d['sha256']}.json"
@@ -203,10 +212,17 @@ def pdf(d):
  save_checkpoint()
  print(json.dumps({'document':d['id'],'status':d.get('fetchStatus'),'retryNeeded':bool(d.get('lastError'))}),flush=True)
  return d
-# MeetingPlus occasionally returns an HTML fallback when document downloads
-# overlap. Refresh serially and retry before recording a failed attempt; the
-# previously archived revision is preserved throughout.
-with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:docs=list(pool.map(pdf,docs))
+# Bound simultaneous requests and in-memory PDFs. Wait for each group before
+# processing it, so an HTML fallback is retried without any concurrent
+# download. Checkpoint and immutable snapshot writes are always serial.
+downloaded=[]
+with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+ for offset in range(0,len(docs),4):
+  batch=docs[offset:offset+4]
+  downloads=[None if reusable(d) else pool.submit(fetch_pdf,d['url']) for d in batch]
+  concurrent.futures.wait([future for future in downloads if future is not None])
+  downloaded.extend(pdf(d,future) for d,future in zip(batch,downloads))
+docs=downloaded
 # Keep previously observed source records when MeetingPlus stops listing a link. Absence
 # from one refreshed HTML page is not evidence that the source was withdrawn or invalid.
 current_keys={source_key(d['url']) for d in docs}
